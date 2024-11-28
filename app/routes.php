@@ -25,6 +25,7 @@ return function (App $app) {
      */
     $app->post('/upload', function (Request $request, Response $response) {
         $directory = __DIR__ . '/../upload';
+        $authorized_extensions = ['pdf', 'jpg', 'png'];
 
         // Get all parsed body parameters as array
         $params = $request->getParsedBody();
@@ -40,7 +41,7 @@ return function (App $app) {
         $uploadedFiles = $request->getUploadedFiles();
 
         if (empty($uploadedFiles['file'])) {
-            $response->getBody()->write(json_encode(['error' => 'No file uploaded']));
+            $response->getBody()->write(json_encode(['success' => false, 'error' => 'No file uploaded']));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
@@ -48,12 +49,33 @@ return function (App $app) {
 
         // Validate and move file
         if ($file->getError() === UPLOAD_ERR_OK) {
+            // Get the file extension
+            $fileExtension = pathinfo($file->getClientFilename(), PATHINFO_EXTENSION);
+
+            // Check extension
+            if (!in_array($fileExtension, $authorized_extensions)) {
+                $response->getBody()->write(json_encode(['success' => false, 'error' => 'File extension not permitted. Must be: '.implode(', ',$authorized_extensions)]));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(415); // Unsupported Media Type
+            }
+
+            // Get the file size
+            $fileSize = $file->getSize();
+
+            // Maximum file size
+            $maxFileSize = 10 * 1024 * 1024 ;  // 10 MB
+
+            // Check if the file size exceeds the limit
+            if ($fileSize > $maxFileSize) {
+                $response->getBody()->write(json_encode(['success' => false, 'error' => 'File size exceeds limit. Max: '.$maxFileSize]));
+                return $response->withHeader('Content-Type', 'application/json')->withStatus(400); // Payload Too Large
+            }
+
             $filename = moveUploadedFile($directory, $file, $description);
             $response->getBody()->write(json_encode(['success' => true, 'filename' => $filename]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
         }
 
-        $response->getBody()->write(json_encode(['error' => 'Failed to upload file']));
+        $response->getBody()->write(json_encode(['success' => false, 'error' => 'Failed to upload file']));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
     });
 };
