@@ -27,8 +27,10 @@ return function (App $app) {
      * Along with the file, you may pass a "description" parameter that will replace the string "Facture".
      */
     $app->post('/upload', function (Request $request, Response $response) {
-        $directory = __DIR__ . '/../upload';
+        // Some parameters
+        $upload_dir = __DIR__ . '/../upload';
         $authorized_extensions = ['pdf', 'jpg', 'png'];
+        $maxFileSize = 10 * 1024 * 1024 ;  // 10 MB // Maximum file size
 
         // Get all parsed body parameters as array
         $params = $request->getParsedBody();
@@ -36,8 +38,8 @@ return function (App $app) {
         // Get the string value
         $description = $params['description'] ?? "Facture";
 
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
         }
 
         // Handle uploaded files
@@ -64,16 +66,13 @@ return function (App $app) {
             // Get the file size
             $fileSize = $file->getSize();
 
-            // Maximum file size
-            $maxFileSize = 10 * 1024 * 1024 ;  // 10 MB
-
             // Check if the file size exceeds the limit
             if ($fileSize > $maxFileSize) {
                 $response->getBody()->write(json_encode(['success' => false, 'error' => 'File size exceeds limit. Max: '.$maxFileSize]));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(400); // Payload Too Large
             }
 
-            $filename = moveUploadedFile($directory, $file, $description);
+            $filename = moveUploadedFile($upload_dir, $file, $description);
             $response->getBody()->write(json_encode(['success' => true, 'filename' => $filename]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
         }
@@ -84,13 +83,13 @@ return function (App $app) {
 };
 
 // Helper function to move uploaded file
-function moveUploadedFile($directory, $uploadedFile, $desc)
+function moveUploadedFile($upload_dir, $uploadedFile, $desc)
 {
     $extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
     $basename = bin2hex(random_bytes(8)); // Generate unique filename
     $filename = sprintf('%s-%s.%s', $desc, $basename, $extension);
 
-    $uploadedFile->moveTo($directory . DIRECTORY_SEPARATOR . $filename);
+    $uploadedFile->moveTo($upload_dir . DIRECTORY_SEPARATOR . $filename);
 
     return $filename;
 }
