@@ -28,9 +28,9 @@ return function (App $app) {
      */
     $app->post('/upload', function (Request $request, Response $response) {
         // Some parameters
-        $upload_dir = __DIR__ . '/../upload';
-        $authorized_extensions = ['pdf', 'jpg', 'png'];
-        $maxFileSize = 10 * 1024 * 1024 ;  // 10 MB // Maximum file size
+        $uploadDir = __DIR__ . '/../upload';
+        $authorizedExtensions = ['pdf', 'jpg', 'png'];
+        $maxFileSize = 10 * 1024 * 1024 ;  // Maximum file size (10 MB)
 
         // Get all parsed body parameters as array
         $params = $request->getParsedBody();
@@ -38,8 +38,8 @@ return function (App $app) {
         // Get the string value
         $description = $params['description'] ?? "Facture";
 
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0755, true);
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
         }
 
         // Handle uploaded files
@@ -58,21 +58,21 @@ return function (App $app) {
             $fileExtension = pathinfo($file->getClientFilename(), PATHINFO_EXTENSION);
 
             // Check extension
-            if (!in_array($fileExtension, $authorized_extensions)) {
-                $response->getBody()->write(json_encode(['success' => false, 'error' => 'File extension not permitted. Must be: '.implode(', ',$authorized_extensions)]));
+            if (!in_array($fileExtension, $authorizedExtensions)) {
+                $response->getBody()->write(json_encode(['success' => false, 'error' => 'File extension not permitted. Allowed extensions: '.implode(', ',$authorizedExtensions)]));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(415); // Unsupported Media Type
             }
 
             // Get the file size
             $fileSize = $file->getSize();
 
-            // Check if the file size exceeds the limit
+            // Check if the file size exceeds the limit (depends of php.ini values for upload_max_filesize)
             if ($fileSize > $maxFileSize) {
                 $response->getBody()->write(json_encode(['success' => false, 'error' => 'File size exceeds limit. Max: '.$maxFileSize]));
                 return $response->withHeader('Content-Type', 'application/json')->withStatus(400); // Payload Too Large
             }
 
-            $filename = moveUploadedFile($upload_dir, $file, $description);
+            $filename = moveUploadedFile($uploadDir, $file, $description);
             $response->getBody()->write(json_encode(['success' => true, 'filename' => $filename]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
         }
@@ -83,13 +83,13 @@ return function (App $app) {
 };
 
 // Helper function to move uploaded file
-function moveUploadedFile($upload_dir, $uploadedFile, $desc)
+function moveUploadedFile($uploadDir, $uploadedFile, $desc)
 {
     $extension = pathinfo($uploadedFile->getClientFilename(), PATHINFO_EXTENSION);
     $basename = bin2hex(random_bytes(8)); // Generate unique filename
     $filename = sprintf('%s-%s.%s', $desc, $basename, $extension);
 
-    $uploadedFile->moveTo($upload_dir . DIRECTORY_SEPARATOR . $filename);
+    $uploadedFile->moveTo($uploadDir . DIRECTORY_SEPARATOR . $filename);
 
     return $filename;
 }
